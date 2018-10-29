@@ -1,0 +1,27 @@
+{
+  "name": "conductor-nodejs-worker",
+  "version": "0.1.0",
+  "description": "a simple worker for Netflix conductor server",
+  "main": "index.js",
+  "scripts": {
+    "test": "node example.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chinajuanbob/conductor-nodejs-worker.git"
+  },
+  "author": {
+    "name": "chinajuanbob",
+    "email": "chinajuanbob@gmail.com"
+  },
+  "license": "GPL",
+  "bugs": {
+    "url": "https://github.com/chinajuanbob/conductor-nodejs-worker/issues"
+  },
+  "homepage": "https://github.com/chinajuanbob/conductor-nodejs-worker",
+  "dependencies": {
+    "p-forever": "^1.0.1",
+    "restify-clients": "^2.6.2",
+    "sleep-promise": "^8.0.1"
+  }
+}
