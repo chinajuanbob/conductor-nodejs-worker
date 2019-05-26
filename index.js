@@ -29,7 +29,7 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
         resolve()
         return
       }
-      const input = obj.inputData.input
+      const input = obj.inputData
       const { workflowInstanceId, taskId } = obj
       that.client.post(`${that.apiPath}/tasks/${taskId}/ack?workerid=${that.workerid}`, (err, req, res, obj) => {
         if (err){
