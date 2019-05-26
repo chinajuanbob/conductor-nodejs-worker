@@ -90,7 +90,7 @@ ConductorWorker.prototype.Start = function (taskType, fn, interval) {
       await sleep(interval || 1000)
       return that.pollAndWork(taskType, fn).then(data => {
         if(data!=null) {
-          console.log(data.reason + ' workflowInstanceId=' + data.workflowInstanceId + '; taskId=' + data.taskId)
+          console.log('[WORKER] ' + data.reason + ' workflowInstanceId=' + data.workflowInstanceId + '; taskId=' + data.taskId)
         }
       }, (err) => {
         console.log(err)
