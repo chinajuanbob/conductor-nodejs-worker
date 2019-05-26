@@ -26,7 +26,7 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
         return
       }
       if (!obj || !obj.inputData) {
-        resolve()
+        resolve(null)
         return
       }
       const input = obj.inputData
@@ -38,7 +38,11 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
         }
         // console.log('ack?: %j', obj)
         if (obj !== true) {
-          resolve()
+          resolve({
+            reason: 'FAILED_ACK',
+            workflowInstanceId,
+            taskId
+          })
           return
         }
         const t1 = Date.now()
@@ -53,7 +57,11 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
           that.client.post(`${that.apiPath}/tasks/`, result, (err, req, res, obj) => {
             // err is RestError: Invalid JSON in response, ignore it
             // console.log(obj)
-            resolve()
+            resolve({
+              reason: 'COMPLETED',
+              workflowInstanceId,
+              taskId
+            })
           })
         }, (err) => {
           result.callbackAfterSeconds = (Date.now() - t1)/1000
@@ -62,7 +70,11 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
           that.client.post(`${that.apiPath}/tasks/`, result, (err, req, res, obj) => {
             // err is RestError: Invalid JSON in response, ignore it
             // console.log(obj)
-            resolve()
+            resolve({
+              reason: 'FAILED',
+              workflowInstanceId,
+              taskId
+            })
           })
         })
       })
@@ -77,7 +89,9 @@ ConductorWorker.prototype.Start = function (taskType, fn, interval) {
     if (that.working) {
       await sleep(interval || 1000)
       return that.pollAndWork(taskType, fn).then(data => {
-        console.log(true)
+        if(data!=null) {
+          console.log(data.reason + ' workflowInstanceId=' + data.workflowInstanceId + '; taskId=' + data.taskId)
+        }
       }, (err) => {
         console.log(err)
       })
