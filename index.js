@@ -3,7 +3,10 @@ const EventEmitter = require('events').EventEmitter
 const clients = require('restify-clients')
 const pForever = require('p-forever')
 const sleep = require('sleep-promise')
- 
+const debug = require('debug')('conductor-nodejs-worker:debug')
+const info = require('debug')('conductor-nodejs-worker:info')
+const trace = require('debug')('conductor-nodejs-worker:trace')
+
 function ConductorWorker(options) {
     EventEmitter.call(this)
     this.url = options.url
@@ -18,21 +21,28 @@ util.inherits(ConductorWorker, EventEmitter)
 module.exports = ConductorWorker
 
 ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'function'
+  trace('ConductorWorker.pollAndWork called')
   const that = this
   return new Promise((resolve, reject) => {
+    debug('Polling task to work from %o', `${that.apiPath}/tasks/poll/${taskType}?workerid=${that.workerid}`)    
     that.client.get(`${that.apiPath}/tasks/poll/${taskType}?workerid=${that.workerid}`, (err, req, res, obj) => {
-      if (err){
+      if (err) {
         reject(err)
         return
       }
-      if (!obj || !obj.inputData) {
+
+      info('Pooling task %o', taskType)
+      if (res.statusCode === 204) {
         resolve(null)
         return
       }
-      const input = obj.inputData
+      
+      debug('Task object retrieved %o', obj)
+      const input = obj.inputData || {}
       const { workflowInstanceId, taskId } = obj
-      that.client.post(`${that.apiPath}/tasks/${taskId}/ack?workerid=${that.workerid}`, (err, req, res, obj) => {
+      that.client.post(`${that.apiPath}/tasks/${taskId}/ack?workerid=${that.workerid}`, {}, (err, req, res, obj) => {
         if (err){
+          debug('HTTP ERROR ON ACK TASK REQUEST')
           reject(err)
           return
         }
@@ -54,22 +64,30 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
           result.callbackAfterSeconds = (Date.now() - t1)/1000
           result.outputData = output
           result.status ='COMPLETED'
-          that.client.post(`${that.apiPath}/tasks/`, result, (err, req, res, obj) => {
-            // err is RestError: Invalid JSON in response, ignore it
-            // console.log(obj)
+          that.client.post(`${that.apiPath}/tasks/`, result, (err, req, res) => {
+            if(res.statusCode >= 300){
+              debug('HTTP ERROR ON COMPLETE TASK REQUEST')
+              reject(err)
+              return
+            }
+            
             resolve({
               reason: 'COMPLETED',
               workflowInstanceId,
               taskId
             })
+
           })
         }, (err) => {
           result.callbackAfterSeconds = (Date.now() - t1)/1000
           result.reasonForIncompletion = err // If failed, reason for failure
           result.status ='FAILED'
           that.client.post(`${that.apiPath}/tasks/`, result, (err, req, res, obj) => {
-            // err is RestError: Invalid JSON in response, ignore it
-            // console.log(obj)
+            if(res.statusCode >= 300){
+              debug('HTTP ERROR ON POST FAILED TASK REQUEST')
+              reject(err)
+              return
+            }
             resolve({
               reason: 'FAILED',
               workflowInstanceId,
@@ -83,17 +101,21 @@ ConductorWorker.prototype.pollAndWork = function (taskType, fn) { // keep 'funct
 }
 
 ConductorWorker.prototype.Start = function (taskType, fn, interval) {
+  trace('ConductorWorker.Start called')
   const that = this
   this.working = true
   pForever(async () => {
     if (that.working) {
+      debug('Sleeping for %o ms', interval || 1000)
       await sleep(interval || 1000)
       return that.pollAndWork(taskType, fn).then(data => {
         if(data!=null) {
-          console.log('[WORKER] ' + data.reason + ' workflowInstanceId=' + data.workflowInstanceId + '; taskId=' + data.taskId)
+          info('%o workflowInstanceId=%o; taskId=%o ', data.reason, data.workflowInstanceId, data.taskId)
+        } else {
+          info('The task pool is empty! Retrying soon...')
         }
       }, (err) => {
-        console.log(err)
+        info('Communication Failure: %s', err)
       })
     } else {
       return pForever.end
@@ -102,5 +124,6 @@ ConductorWorker.prototype.Start = function (taskType, fn, interval) {
 }
 
 ConductorWorker.prototype.Stop = function (taskType, fn) {
+  trace('ConductorWorker.Stop called')
   this.working = false
 }
