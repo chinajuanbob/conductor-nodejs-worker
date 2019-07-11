@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/chinajuanbob/conductor-nodejs-worker",
   "dependencies": {
+    "debug": "^4.1.1",
     "p-forever": "^1.0.1",
     "restify-clients": "^2.6.2",
     "sleep-promise": "^8.0.1"
